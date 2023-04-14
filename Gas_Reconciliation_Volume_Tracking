@@ -1,0 +1,38 @@
+import datetime as dt
+import pandas as pd
+import tentaclio as tio
+import matplotlib.pyplot as plt
+import numpy as np
+
+# link to databricks
+databricks = "databricks+thrift://octoenergy-oeuk.cloud.databricks.com"
+# you may need to use the following databricks connection instead if the above doesn't work for you
+#databricks = "databricks+thrift://hostname/gm_explosion_inter_db"
+trading_db_url = "awsathena+rest://athena.eu-west-1.amazonaws.com:443/trading?s3_staging_dir=s3%3A%2F%2Faws-athena-query-results-005780572125-eu-west-1%2F"
+athena_url = "awsathena+rest://hostname/default"
+
+input_dir = '/home/jovyan/shared/Gross_Margin_OEGB/4 Consumption/4 Volume Reconciliations/gas_rec_input_files/'
+
+pd.set_option('display.max_columns', None)
+plt.rcParams['figure.figsize'] = [7, 5]
+
+
+# Variables to alter
+start_date = dt.date(2022,8,1)
+end_date = dt.date(2022,11,30)
+
+gas_aa_run_date = dt.date(2022,12,28)
+
+# Incumbent GM data
+# Daily Consumption is calculated as (AQ * LPA) i.e. the industry algorithm view of weathered demand
+sql='''
+SELECT date_trunc('month', date) as month, sum(daily_consumption_charged) as gm_cons_charge_kwh, sum(daily_consumption_settled) as gm_cons_settl_kwh FROM consumer.fnl_grossmargin_gasaggregatedlatest
+WHERE true
+AND date BETWEEN date '{start_date}' AND date '{end_date}' 
+GROUP BY 1
+ORDER BY 1
+'''
+
+with tio.db(databricks) as k:
+    orig_gm_consumption_df = pd.read_sql_query(sql.format(start_date=start_date, end_date=end_date), k.conn)
+orig_gm_consumption_df.head(7)
