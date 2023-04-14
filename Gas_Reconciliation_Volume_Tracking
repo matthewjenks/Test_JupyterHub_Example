@@ -36,3 +36,39 @@ ORDER BY 1
 with tio.db(databricks) as k:
     orig_gm_consumption_df = pd.read_sql_query(sql.format(start_date=start_date, end_date=end_date), k.conn)
 orig_gm_consumption_df.head(7)
+
+# New gas AAs GM data
+# AAs are calculated as (meter read consumption) * LPA, where available
+
+sql='''
+SELECT date_trunc('month', settlement_date) as month, sum(consumption_charged) gm_new_aas_consumption_kwh FROM consumer_gm.fnl_grossmargin_gasdaily_aa
+WHERE true
+AND updated_at = '{gas_aa_run_date}'
+AND settlement_date BETWEEN date '{start_date}' AND date '{end_date}' 
+GROUP BY 1
+ORDER BY 1
+'''
+
+with tio.db(databricks) as k:
+    orig_gm_consumption_newaas_df = pd.read_sql_query(sql.format(start_date=start_date, end_date=end_date, gas_aa_run_date=gas_aa_run_date), k.conn)
+
+pd.set_option('display.float_format', lambda x: f'{x:.3f}')
+
+orig_gm_consumption_newaas_df.head(15)
+
+# Tidy up GM dates
+gm_consumption_df = orig_gm_consumption_df.copy()
+gm_consumption_df['month'] = pd.to_datetime(gm_consumption_df['month'], unit='ns')
+gm_consumption_df['month'] = pd.to_datetime(gm_consumption_df.month).dt.tz_localize(None)
+
+gm_consumption_newaas_df = orig_gm_consumption_newaas_df.copy()
+gm_consumption_newaas_df['month'] = pd.to_datetime(gm_consumption_newaas_df['month'], unit='ns')
+gm_consumption_newaas_df['month'] = pd.to_datetime(gm_consumption_newaas_df.month).dt.tz_localize(None)
+
+plt.scatter(gm_consumption_df.month, gm_consumption_df.gm_cons_charge_kwh)
+
+gm_consumption_newaas_df
+
+plt.scatter(gm_consumption_newaas_df.month, gm_consumption_newaas_df.gm_new_aas_consumption_kwh);
+
+
